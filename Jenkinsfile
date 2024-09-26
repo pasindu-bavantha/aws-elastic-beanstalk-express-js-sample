@@ -10,46 +10,46 @@ pipeline {
             steps {
                 sh 'npm install --save'
                 echo 'Install Dependencies Finished'
+            }
+        }
 
+        stage('Snyk Security Install') {
+            steps {
                 sh 'npm install snyk --save-dev'
                 echo 'Snyk Installed'
+            }
+        }
 
+        stage('Snyk Authentication') {
+            steps {
                 withCredentials([string(credentialsId: 'snyk_token', variable: 'SNYK_TOKEN')]) {
                     sh './node_modules/.bin/snyk auth $SNYK_TOKEN'
                     echo 'Snyk Authentication Finished'
                 }
             }
         }
-        stage('Build') {
+
+        stage('Snyk Security Scan') {
             steps {
-                sh 'npm install --save'
-                echo 'Installing Dependencies Finished'
+                 script {
+                    def snykResults = sh(script: './node_modules/.bin/snyk test --json', returnStdout: true)
+                    def jsonResults = readJSON(text: snykResults)
+                    if (jsonResults.vulnerabilities.any { it.severity == 'critical' }) {
+                        error("Critical vulnerabilities found! Check snyk-report.json.")
+                    } else {
+                        writeFile file: 'snyk-report.json', text: snykResults
+                    }
+                }
+
+                echo 'Snyk Security Scan Completed'
             }
         }
 
-        stage('Security Scan') {
+        stage('Build') {
             steps {
                 script {
-                    def snykResults = sh(script: './node_modules/.bin/snyk test --json', returnStdout: true)
-                    def jsonResults = readJSON(text: snykResults)
-                    
-                    // Check for vulnerabilities
-                    if (jsonResults.vulnerabilities.any { it.severity == 'critical' }) {
-                        echo "Snyk Vulnerabilities found! Check snyk-report.json."
-                    } else {
-                        echo "No critical vulnerabilities found."
-                    }
-                    // Always write the report
-                    writeFile file: 'snyk-report.json', text: snykResults
-                }
-                echo 'Snyk Scan Completed'
-            }
-            post {
-                success {
-                    echo 'Snyk Security Scan passed!'
-                }
-                failure {
-                    echo 'Snyk Scan completed with vulnerabilities.'
+                    sh 'npm install'
+                    echo 'Build completed.'
                 }
             }
         }
@@ -57,24 +57,15 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    sh 'npm install supertest'
                     sh 'npm test'
-                    echo 'Test completed.'
-                }
-            }
-            post {
-                success {
-                    echo 'Tests passed!'
-                }
-                failure {
-                    echo 'Failed. Check logs for details.'
+                    echo 'Tests completed.'
                 }
             }
         }
     }
     post {
         always {
-            echo 'Pipeline Completed.'
+            echo 'Pipeline finished.'
         }
     }
 }
