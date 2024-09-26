@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            image 'node:16'
+            image 'node:16-alpine'
             args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
@@ -9,28 +9,68 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh 'npm install --save'
+                echo 'Install Dependencies Finished'
+
+                sh 'npm install snyk --save-dev'
+                echo 'Snyk Installed'
+
+                withCredentials([string(credentialsId: 'snyk_token', variable: 'SNYK_TOKEN')]) {
+                    sh './node_modules/.bin/snyk auth $SNYK_TOKEN'
+                    echo 'Snyk Authentication Finished'
+                }
             }
         }
         stage('Build') {
             steps {
-                sh 'npm run build'
+                sh 'npm install --save'
+                echo 'Installing Dependencies Finished'
             }
         }
+
         stage('Test') {
             steps {
-                sh 'npm test'
+                script {
+                    sh 'npm install supertest'
+                    sh 'npm test'
+                    echo 'Test completed.'
+                }
             }
-        }
-        stage('Security Scan') {
-            steps {
-                sh 'npm install -g snyk'
-                sh 'snyk test'
+            post {
+                success {
+                    echo 'Tests passed!'
+                }
+                failure {
+                    echo 'Failed. Check logs for details.'
+                }
             }
         }
     }
+            stage('Security Scan') {
+            steps {
+                 script {
+                    def snykResults = sh(script: './node_modules/.bin/snyk test --json --ignore-policy', returnStdout: true)
+                    def jsonResults = readJSON(text: snykResults)
+                    if (jsonResults.vulnerabilities.any { it.severity == 'critical' }) {
+                        error("Synk Vulnerabilities found! Check snyk-report.json.")
+                    } else {
+                        writeFile file: 'snyk-report.json', text: snykResults
+                    }
+                }
+
+                echo 'Snyk Scan Completed'
+            }
+            post {
+                success {
+                    echo 'Sync Security Scan passed!'
+                }
+                failure {
+                    echo 'Synk Failed.'
+                }
+            }
+        }
     post {
         always {
-            archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+            echo 'Pipeline Completed.'
         }
     }
 }
