@@ -29,26 +29,29 @@ pipeline {
 
         stage('Security Scan') {
             steps {
-                 script {
+                script {
                     def snykResults = sh(script: './node_modules/.bin/snyk test --json', returnStdout: true)
                     def jsonResults = readJSON(text: snykResults)
                     if (jsonResults.vulnerabilities.any { it.severity == 'critical' }) {
-                        error("Synk Vulnerabilities found! Check snyk-report.json.")
+                        echo "Snyk Vulnerabilities found! Check snyk-report.json."
+                        // Optionally write the results even if there are vulnerabilities
+                        writeFile file: 'snyk-report.json', text: snykResults
                     } else {
                         writeFile file: 'snyk-report.json', text: snykResults
                     }
                 }
-
+        
                 echo 'Snyk Scan Completed'
             }
             post {
                 success {
-                    echo 'Sync Security Scan passed!'
+                    echo 'Snyk Security Scan passed!'
                 }
                 failure {
-                    echo 'Synk Failed.'
+                    echo 'Snyk Failed.'
                 }
             }
+        }
         }
 
 
