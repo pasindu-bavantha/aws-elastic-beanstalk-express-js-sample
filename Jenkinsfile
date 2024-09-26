@@ -27,25 +27,7 @@ pipeline {
             }
         }
 
-        stage('Test') {
-            steps {
-                script {
-                    sh 'npm install supertest'
-                    sh 'npm test'
-                    echo 'Test completed.'
-                }
-            }
-            post {
-                success {
-                    echo 'Tests passed!'
-                }
-                failure {
-                    echo 'Failed. Check logs for details.'
-                }
-            }
-        }
-    }
-            stage('Security Scan') {
+        stage('Security Scan') {
             steps {
                  script {
                     def snykResults = sh(script: './node_modules/.bin/snyk test --json --ignore-policy', returnStdout: true)
@@ -68,6 +50,26 @@ pipeline {
                 }
             }
         }
+
+
+        stage('Test') {
+            steps {
+                script {
+                    sh 'npm install supertest'
+                    sh 'npm test'
+                    echo 'Test completed.'
+                }
+            }
+            post {
+                success {
+                    echo 'Tests passed!'
+                }
+                failure {
+                    echo 'Failed. Check logs for details.'
+                }
+            }
+        }
+    }
     post {
         always {
             echo 'Pipeline Completed.'
