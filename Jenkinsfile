@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            image 'node:16-alpine'
+            image 'node:16'
             args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
@@ -9,45 +9,28 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh 'npm install --save'
-                echo 'Install Dependencies Finished'
-
-                sh 'npm install snyk --save-dev'
-                echo 'Snyk Installed'
-
-                withCredentials([string(credentialsId: 'snyk_token', variable: 'SNYK_TOKEN')]) {
-                    sh './node_modules/.bin/snyk auth $SNYK_TOKEN'
-                    echo 'Snyk Authentication Finished'
-                }
             }
         }
         stage('Build') {
             steps {
-                sh 'npm install --save'
-                echo 'Installing Dependencies Finished'
+                sh 'npm run build'
             }
         }
-
         stage('Test') {
             steps {
-                script {
-                    sh 'npm install supertest'
-                    sh 'npm test'
-                    echo 'Test completed.'
-                }
+                sh 'npm test'
             }
-            post {
-                success {
-                    echo 'Tests passed!'
-                }
-                failure {
-                    echo 'Failed. Check logs for details.'
-                }
+        }
+        stage('Security Scan') {
+            steps {
+                sh 'npm install -g snyk'
+                sh 'snyk test'
             }
         }
     }
     post {
         always {
-            echo 'Pipeline Completed.'
+            archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
         }
     }
 }
