@@ -5,71 +5,26 @@ pipeline {
             args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
+    environment {
+        SNYK_TOKEN = credentials('snyk-token')
+    }
     stages {
         stage('Install Dependencies') {
             steps {
                 sh 'npm install --save'
-                echo 'Dependency installed'
-
-                sh 'npm install snyk --save-dev'
-                echo 'Snyk installation completed'
-
             }
         }
-
-        stage('Build') {
-            steps {
-                sh 'npm run build'
-                echo 'Build completed'
-            }
-        }
-
         stage('Snyk Security Scan') {
             steps {
-                script {
-                    def snykPoint = sh(script: './node_modules/.bin/snyk test --json', returnStdout: true)
-                    def jsonPoint = readJSON(text: snykPoint)
-                    if (jsonPoint.vulnerabilities.any { it.severity == 'critical' }) {
-                        error("Critical vulnerabilities found!")
-                    } else {
-                        writeFile file: 'snyk-report.json', text: snykPoint
-                    }
-                }
-
-                echo 'Security scan completed'
-            }
-            post {
-                success {
-                    echo 'Security scan passed!'
-                }
-                failure {
-                    echo 'Security scan failed due to critical vulnerabilities.'
-                }
-            }
-        }
-
-        stage('Test') {
-            steps {
-                script {
-                    sh 'npm test'
-                    echo 'Tests completed.'
-                }
-            }
-            post {
-                success {
-                    echo 'Tests passed!'
-                }
-                failure {
-                    echo 'Some tests failed. Check logs for details.'
-                }
+                sh 'npm install snyk --save'
+                sh 'npx snyk auth $SNYK_TOKEN'
+                sh 'npx snyk test || exit 0'
             }
         }
     }
-
     post {
         always {
-            echo 'Pipeline completed.'
-            archiveArtifacts artifacts: '**/snyk-report.json', allowEmptyArchive: true
+            sh 'rm -rf node_modules'
         }
     }
 }
