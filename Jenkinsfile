@@ -1,78 +1,59 @@
 pipeline {
     agent {
         docker {
-            image 'node:16-alpine'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
+            image 'node:16'  // Use Node.js Docker image as the build agent
         }
     }
     stages {
         stage('Install Dependencies') {
             steps {
-                sh 'npm install --save'
-                echo 'Install Dependencies Finished'
-
-                sh 'npm install snyk --save-dev'
-                echo 'Snyk Installed'
-
-                withCredentials([string(credentialsId: 'snyk_token', variable: 'SNYK_TOKEN')]) {
-                    sh './node_modules/.bin/snyk auth $SNYK_TOKEN'
-                    echo 'Snyk Authentication Finished'
-                }
+                // Install project dependencies
+                sh 'npm install'
             }
         }
         stage('Build') {
             steps {
-                sh 'npm install --save'
-                echo 'Installing Dependencies Finished'
+                // Run the build command
+                sh 'npm run build'
             }
         }
-
-        stage('Security Scan') {
-            steps {
-                 script {
-                    def snykResults = sh(script: './node_modules/.bin/snyk test --json', returnStdout: true)
-                    def jsonResults = readJSON(text: snykResults)
-                    if (jsonResults.vulnerabilities.any { it.severity == 'critical' }) {
-                        error("Synk Vulnerabilities found! Check snyk-report.json.")
-                    } else {
-                        writeFile file: 'snyk-report.json', text: snykResults
-                    }
-                }
-
-                echo 'Snyk Scan Completed'
-            }
-            post {
-                success {
-                    echo 'Sync Security Scan passed!'
-                }
-                failure {
-                    echo 'Synk Failed.'
-                }
-            }
-        }
-
-
         stage('Test') {
             steps {
-                script {
-                    sh 'npm install supertest'
-                    sh 'npm test'
-                    echo 'Test completed.'
-                }
+                // Run the tests
+                sh 'npm test'
             }
-            post {
-                success {
-                    echo 'Tests passed!'
+        }
+        stage('Security Scan') {
+            steps {
+                // Install Snyk globally
+                sh 'npm install -g snyk'
+                
+                // Authenticate with Snyk (Use API token or credentials in Jenkins for real usage)
+                withCredentials([string(credentialsId: 'snyk-api-token', variable: 'SNYK_TOKEN')]) {
+                    sh 'snyk auth $SNYK_TOKEN'
                 }
-                failure {
-                    echo 'Failed. Check logs for details.'
-                }
+                
+                // Run Snyk security scan
+                sh 'snyk test --severity-threshold=high'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                // Simulate deployment
+                echo 'Deployment stage...'
             }
         }
     }
     post {
+        failure {
+            // If any stage fails, stop the pipeline
+            echo 'Pipeline failed, check the logs for details!'
+        }
         always {
-            echo 'Pipeline Completed.'
+            // Always executed after pipeline
+            echo 'Pipeline complete!'
         }
     }
 }
+
+          
