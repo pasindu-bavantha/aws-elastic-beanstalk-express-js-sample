@@ -29,7 +29,7 @@ pipeline {
                 sh 'npm install -g snyk'
                 
                 // Authenticate with Snyk (Use API token or credentials in Jenkins for real usage)
-                withCredentials([string(credentialsId: 'snyk-api-token', variable: 'SNYK_TOKEN')]) {
+                withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
                     sh 'snyk auth $SNYK_TOKEN'
                 }
                 
