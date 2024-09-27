@@ -31,7 +31,7 @@ pipeline {
             steps {
                 script {
                     // Run Snyk test with --ignore-policy and capture exit code
-                    def snykResults = sh(script: './node_modules/.bin/snyk test --json --ignore-policy', returnStdout: true, returnStatus: true)
+                    def snykResults = sh(script: './node_modules/.bin/snyk test --json --ignore-policy --fail-on=none', returnStdout: true, returnStatus: true)
                     def jsonResults = readJSON(text: snykResults)
                     
                     // Check for vulnerabilities
