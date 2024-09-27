@@ -25,8 +25,12 @@ pipeline {
                 script {
                     sh 'npm install supertest'
                     sh '''
-                        jq '.scripts.test = "npm test"' package.json > tmp.json && mv tmp.json package.json
-                    '''
+                        if ! grep -q '"test":' package.json; then
+                            # If the test script doesn't exist, add it
+                            sed -i 's/"scripts": {/"scripts": {\\n    "test": "echo \\"Error: no test specified\\" && exit 1",/' package.json
+                        fi
+                       '''
+
                     sh 'npm test'
                     echo 'Test completed.'
                 }
