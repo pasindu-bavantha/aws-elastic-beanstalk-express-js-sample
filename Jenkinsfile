@@ -25,9 +25,8 @@ pipeline {
                 script {
                     sh 'npm install supertest'
                     sh '''
-                        if ! grep -q '"test":' package.json; then
-                            # If the test script doesn't exist, add it
-                            sed -i 's/"scripts": {/"scripts": {\\n    "test": "echo \\"Error: no test specified\\" && exit 1",/' package.json
+                        if ! npm run | grep -q "test"; then
+                            npm set-script test "echo 'Error: no test specified' && exit 1"
                         fi
                        '''
 
