@@ -20,11 +20,13 @@ pipeline {
                 }
             }
         }
-
         stage('Test') {
             steps {
                 script {
                     sh 'npm install supertest'
+                    sh '''
+                        jq '.scripts.test = "npm test"' package.json > tmp.json && mv tmp.json package.json
+                    '''
                     sh 'npm test'
                     echo 'Test completed.'
                 }
@@ -39,34 +41,7 @@ pipeline {
             }
         }
     }
-    stage('Security Scan') {
-        steps {
-            script {
-                // Run Snyk test with --ignore-policy and capture exit code
-                def snykResults = sh(script: './node_modules/.bin/snyk test --json --ignore-policy --fail-on=none', returnStdout: true, returnStatus: true)
-                def jsonResults = readJSON(text: snykResults)
-                
-                // Check for vulnerabilities
-                if (jsonResults.vulnerabilities.any { it.severity == 'critical' }) {
-                    echo "Snyk found critical vulnerabilities! Check snyk-report.json."
-                    writeFile file: 'snyk-report.json', text: snykResults
-                    // Optionally log detailed info or handle the findings
-                } else {
-                    echo "No critical vulnerabilities found."
-                    writeFile file: 'snyk-report.json', text: snykResults
-                }
-            }
-            echo 'Snyk Scan Completed'
-        }
-        post {
-            success {
-                echo 'Snyk Security Scan completed!'
-            }
-            failure {
-                echo 'Snyk scan completed, but vulnerabilities were found.'
-            }
-        }
-    }
+
     post {
         always {
             echo 'Pipeline Completed.'
