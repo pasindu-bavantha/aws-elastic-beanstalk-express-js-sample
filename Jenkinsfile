@@ -20,18 +20,12 @@ pipeline {
                 }
             }
         }
-        stage('Build') {
-            steps {
-                sh 'npm install --save'
-                echo 'Installing Dependencies Finished'
-            }
-        }
 
         stage('Test') {
             steps {
                 script {
                     sh 'npm install supertest'
-                    sh 'npm test'
+                    sh 'npm supertest'
                     echo 'Test completed.'
                 }
             }
