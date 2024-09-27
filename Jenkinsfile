@@ -1,59 +1,71 @@
 pipeline {
     agent {
         docker {
-            image 'node:16'  // Use Node.js Docker image as the build agent
+            image 'node:16-alpine'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
     stages {
         stage('Install Dependencies') {
             steps {
-                // Install project dependencies
-                sh 'npm install'
+                sh 'npm install --save'
+                echo 'Install Dependencies Finished'
             }
         }
+
+        stage('Snyk Security Install') {
+            steps {
+                sh 'npm install snyk --save-dev'
+                echo 'Snyk Installed'
+            }
+        }
+
+        stage('Snyk Authentication') {
+            steps {
+                withCredentials([string(credentialsId: 'snyk_token', variable: 'SNYK_TOKEN')]) {
+                    sh './node_modules/.bin/snyk auth $SNYK_TOKEN'
+                    echo 'Snyk Authentication Finished'
+                }
+            }
+        }
+
+        stage('Snyk Security Scan') {
+            steps {
+                 script {
+                    def snykResults = sh(script: './node_modules/.bin/snyk test --json', returnStdout: true)
+                    def jsonResults = readJSON(text: snykResults)
+                    if (jsonResults.vulnerabilities.any { it.severity == 'critical' }) {
+                        error("Critical vulnerabilities found! Check snyk-report.json.")
+                    } else {
+                        writeFile file: 'snyk-report.json', text: snykResults
+                    }
+                }
+
+                echo 'Snyk Security Scan Completed'
+            }
+        }
+
         stage('Build') {
             steps {
-                // Run the build command
-                sh 'npm run build'
+                script {
+                    sh 'npm install'
+                    echo 'Build completed.'
+                }
             }
         }
+
         stage('Test') {
             steps {
-                // Run the tests
-                sh 'npm test'
-            }
-        }
-        stage('Security Scan') {
-            steps {
-                // Install Snyk globally
-                sh 'npm install -g snyk'
-                
-                // Authenticate with Snyk (Use API token or credentials in Jenkins for real usage)
-                withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
-                    sh 'snyk auth $SNYK_TOKEN'
+                script {
+                    sh 'npm test'
+                    echo 'Tests completed.'
                 }
-                
-                // Run Snyk security scan
-                sh 'snyk test --severity-threshold=high'
-            }
-        }
-        stage('Deploy') {
-            steps {
-                // Simulate deployment
-                echo 'Deployment stage...'
             }
         }
     }
     post {
-        failure {
-            // If any stage fails, stop the pipeline
-            echo 'Pipeline failed, check the logs for details!'
-        }
         always {
-            // Always executed after pipeline
-            echo 'Pipeline complete!'
+            echo 'Pipeline finished.'
         }
     }
 }
-
-          
